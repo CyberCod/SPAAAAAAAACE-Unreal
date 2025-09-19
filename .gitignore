@@ -1,0 +1,11 @@
+# Track only code and configs; ignore everything else
+*
+!.gitignore
+!.gitattributes
+!SPAAAAAACE.uproject
+!Config/
+!Config/**
+!Source/
+!Source/**
+
+

@@ -1,0 +1,29 @@
+# Normalize line endings for text files (let Git handle per-platform checkouts)
+* text=auto
+
+# Keep Windows project files with CRLF
+*.sln text eol=crlf
+*.vcxproj text eol=crlf
+*.vcxproj.filters text eol=crlf
+*.vcxproj.user text eol=crlf
+
+# Treat UE assets as binary
+*.uasset binary
+*.umap binary
+*.ubulk binary
+*.uexp binary
+*.ufont binary
+*.utexture binary
+
+# Images and media as binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.bmp binary
+*.tga binary
+*.psd binary
+*.wav binary
+*.mp3 binary
+*.mp4 binary
+
+
