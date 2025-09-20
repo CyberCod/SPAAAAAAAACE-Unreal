@@ -11,6 +11,23 @@ class UCameraComponent;
 class USHIP_BASICS;
 
 /**
+ * FChaseCameraSettings - Blueprint-tunable chase camera configuration
+ */
+USTRUCT(BlueprintType)
+struct FChaseCameraSettings
+{
+	GENERATED_BODY()
+
+	/** Pivot offset relative to the physics body (where the stick hinges) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera|Chase")
+	FVector PivotOffset = FVector::ZeroVector;
+
+	/** Stick end offset relative to the pivot (defines boom length/height) */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera|Chase")
+	FVector StickOffset = FVector(-1000.0f, 0.0f, 150.0f);
+};
+
+/**
  * Camera Mode Enumeration
  * 
  * Defines the two available camera perspectives for the ship:
@@ -39,8 +56,9 @@ enum class ECameraMode : uint8
  * Component Hierarchy:
  * BuggyColliderMesh (Root - Physics Body)
  * ├── ShipVisual (High-res visual mesh)
- * ├── CameraStick (Camera positioning "empty")
- * │   └── FOLLOW_CAM (Chase camera)
+ * ├── CameraPivot (Stick rotation pivot at ship center)
+ * │   └── CameraStick (Stick end; defines boom length)
+ * │       └── FOLLOW_CAM (Chase camera mounted at stick end)
  * ├── NoseStick (Nose camera positioning)
  * │   └── NOSE_CAM (Cockpit camera)
  * └── ShipBasics (Gameplay logic component)
@@ -144,16 +162,21 @@ public:
 	TObjectPtr<UStaticMeshComponent> ShipVisual;
 
 	/**
-	 * CameraStick - Chase Camera Positioning Component
+	 * CameraPivot - Rotation Point of the Camera Stick
 	 * 
-	 * A simple SceneComponent that acts like a "camera boom" for the
-	 * third-person chase camera. This replaces the complex SpringArm
-	 * system with a straightforward positioning approach.
+	 * Acts as the base/hinge point for an invisible camera stick.
+	 * Rotating this component swings the camera in an arc around the
+	 * pivot, maintaining the stick length.
+	 */
+	UPROPERTY(VisibleAnywhere, Category = "Ship|Components")
+	TObjectPtr<USceneComponent> CameraPivot;
+
+	/**
+	 * CameraStick - End Point of the Camera Stick
 	 * 
-	 * Default Position: (-1000, 0, 150) = 10m behind, 1.5m above ship
-	 * 
-	 * This can be positioned/rotated/scaled in Blueprint to achieve
-	 * different camera behaviors without code changes.
+	 * Represents the end of the invisible camera stick extending from
+	 * CameraPivot. The distance Pivot→Stick defines the boom length.
+	 * Default: (-1000, 0, 150)
 	 */
 	UPROPERTY(VisibleAnywhere, Category = "Ship|Components")
 	TObjectPtr<USceneComponent> CameraStick;
@@ -291,10 +314,25 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Ship|Collider")
 	FVector ColliderLocationOffset = FVector::ZeroVector;
 
+	/**
+	 * CenterOfMassOffset - Physics Center Of Mass Offset
+	 *
+	 * Shifts the rigidbody's center of mass without moving the mesh.
+	 * Useful to change rotational behavior (e.g., more nose-stable).
+	 */
+	UPROPERTY(EditAnywhere, Category = "Ship|Collider")
+	FVector CenterOfMassOffset = FVector::ZeroVector;
+
 	// ============================================================================
 	// CAMERA SYSTEM CONFIGURATION
 	// ============================================================================
 	
+	/**
+	 * ChaseCamera - Blueprint-tunable camera pivot/stick offsets
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera|Chase")
+	FChaseCameraSettings ChaseCamera;
+
 	/**
 	 * CameraMode - Active Camera Perspective
 	 * 

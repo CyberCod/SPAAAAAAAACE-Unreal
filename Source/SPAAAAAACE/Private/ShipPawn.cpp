@@ -164,25 +164,25 @@ AShipPawn::AShipPawn()
 	ShipVisual->SetupAttachment(BuggyColliderMesh);
 	ShipVisual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
-	// ============================================================================
-	// CAMERA SYSTEM SETUP
-	// ============================================================================
+    // ============================================================================
+    // CAMERA SYSTEM SETUP - Two-Component Stick Approach
+    // ============================================================================
 	
-	/**
-	 * CameraStick - Chase Camera Positioning Component
-	 * 
-	 * A simple SceneComponent that acts like a "camera boom" for the
-	 * third-person chase camera. This replaces the complex SpringArm
-	 * system with a straightforward positioning approach.
-	 * 
-	 * Default Position: (-1000, 0, 150) = 10m behind, 1.5m above ship center
-	 * 
-	 * This can be positioned/rotated/scaled in Blueprint to achieve
-	 * different camera behaviors without code changes.
-	 */
-	CameraStick = CreateDefaultSubobject<USceneComponent>(TEXT("CameraStick"));
-	CameraStick->SetupAttachment(BuggyColliderMesh);
-	CameraStick->SetRelativeLocation(FVector(-1000.0f, 0.0f, 150.0f));
+    /**
+     * CameraPivot - Rotation Point of the Camera Stick
+     * Position at ship center, used as hinge for the stick rotation
+     */
+    CameraPivot = CreateDefaultSubobject<USceneComponent>(TEXT("CameraPivot"));
+    CameraPivot->SetupAttachment(BuggyColliderMesh);
+    CameraPivot->SetRelativeLocation(ChaseCamera.PivotOffset);
+
+    /**
+     * CameraStick - End Point of the Camera Stick
+     * Distance from pivot defines boom length and height
+     */
+    CameraStick = CreateDefaultSubobject<USceneComponent>(TEXT("CameraStick"));
+    CameraStick->SetupAttachment(CameraPivot);
+    CameraStick->SetRelativeLocation(ChaseCamera.StickOffset);
 
 	/**
 	 * FOLLOW_CAM - Third-Person Chase Camera
@@ -196,13 +196,13 @@ AShipPawn::AShipPawn()
 	 * - SetActive(true): This camera is active by default
 	 * - Relative location/rotation: Camera is at the stick's origin
 	 */
-	FOLLOW_CAM = CreateDefaultSubobject<UCameraComponent>(TEXT("FOLLOW_CAM"));
-	FOLLOW_CAM->SetupAttachment(CameraStick);
-	FOLLOW_CAM->bUsePawnControlRotation = false;
-	FOLLOW_CAM->SetUsingAbsoluteRotation(true);
-	FOLLOW_CAM->SetRelativeRotation(FRotator::ZeroRotator);
-	FOLLOW_CAM->SetRelativeLocation(FVector::ZeroVector);
-	FOLLOW_CAM->SetActive(true);
+    FOLLOW_CAM = CreateDefaultSubobject<UCameraComponent>(TEXT("FOLLOW_CAM"));
+    FOLLOW_CAM->SetupAttachment(CameraStick);
+    FOLLOW_CAM->bUsePawnControlRotation = false;
+    FOLLOW_CAM->SetUsingAbsoluteRotation(true);
+    FOLLOW_CAM->SetRelativeRotation(FRotator::ZeroRotator);
+    FOLLOW_CAM->SetRelativeLocation(FVector::ZeroVector);
+    FOLLOW_CAM->SetActive(true);
 
 	/**
 	 * NoseStick - First-Person Camera Positioning Component
@@ -327,10 +327,16 @@ void AShipPawn::BeginPlay()
 	 * These offsets are applied at runtime rather than in the constructor
 	 * to ensure all components are fully initialized first.
 	 */
-	if (BuggyColliderMesh)
+    if (BuggyColliderMesh)
 	{
 		BuggyColliderMesh->AddLocalRotation(ColliderRotationOffset);
 		BuggyColliderMesh->AddLocalOffset(ColliderLocationOffset);
+
+        // Apply center of mass offset (local space)
+        if (!CenterOfMassOffset.IsNearlyZero())
+        {
+            BuggyColliderMesh->SetCenterOfMass(CenterOfMassOffset, NAME_None);
+        }
 	}
 
 	// ============================================================================
@@ -556,32 +562,32 @@ void AShipPawn::ApplyCameraMode(bool bInstant)
 
 void AShipPawn::TickCameraTrack(float DeltaSeconds, bool bTrackHeld)
 {
-	if (!CameraStick) return;
+    if (!CameraPivot) return;
 
-	if (bTrackHeld)
-	{
-		if (!bCameraTrackActive)
-		{
-			bCameraTrackActive = true;
-			CameraTrackAccumulated = 0.0f;
-		}
+    if (bTrackHeld)
+    {
+        if (!bCameraTrackActive)
+        {
+            bCameraTrackActive = true;
+            CameraTrackAccumulated = 0.0f;
+        }
 
-		const FRotator Current = CameraStick->GetComponentRotation();
-		const FRotator Target = GetActorRotation();
-		const float RemainingYaw = FMath::Abs(FMath::FindDeltaAngleDegrees(Current.Yaw, Target.Yaw));
-		const float SegmentSeconds = FMath::Clamp((RemainingYaw / 180.0f) * CameraTrackMaxSeconds, 0.01f, CameraTrackMaxSeconds);
-		const float InterpSpeed = (SegmentSeconds > 0.f) ? (1.0f / SegmentSeconds) : 1000.f;
+        const FRotator Current = CameraPivot->GetComponentRotation();
+        const FRotator Target = GetActorRotation();
+        const float RemainingYaw = FMath::Abs(FMath::FindDeltaAngleDegrees(Current.Yaw, Target.Yaw));
+        const float SegmentSeconds = FMath::Clamp((RemainingYaw / 180.0f) * CameraTrackMaxSeconds, 0.01f, CameraTrackMaxSeconds);
+        const float InterpSpeed = (SegmentSeconds > 0.f) ? (1.0f / SegmentSeconds) : 1000.f;
 
-		const FRotator NewRot = FMath::RInterpTo(Current, Target, DeltaSeconds, InterpSpeed);
-		CameraStick->SetWorldRotation(NewRot);
+        const FRotator NewRot = FMath::RInterpTo(Current, Target, DeltaSeconds, InterpSpeed);
+        CameraPivot->SetWorldRotation(NewRot);
 
-		CameraTrackAccumulated += DeltaSeconds;
-	}
-	else
-	{
-		// Freeze while not held
-		bCameraTrackActive = false;
-	}
+        CameraTrackAccumulated += DeltaSeconds;
+    }
+    else
+    {
+        // Freeze while not held
+        bCameraTrackActive = false;
+    }
 }
 
 

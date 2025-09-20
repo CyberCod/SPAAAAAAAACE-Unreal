@@ -324,16 +324,11 @@ void USHIP_BASICS::ApplyForcesAndTorques(float DeltaTime, const FShipInputState&
     UE_LOG(LogShipBasics, Verbose, TEXT("Smoothed: L(%.2f,%.2f) R(%.2f,%.2f) T=%.2f"),
         SmoothedLeft.X, SmoothedLeft.Y, SmoothedRight.X, SmoothedRight.Y, SmoothedThrust);
 
-    // Replace local axes computation with corrected axes
-    // Ship-local axes
-    // const FVector Forward = Owner->GetActorForwardVector();
-    // const FVector Right = Owner->GetActorRightVector();
-    // const FVector Up = Owner->GetActorUpVector();
-    const FRotator AxesRot = Settings.PhysicsAxesCorrection;
-    const FRotationMatrix AxesMat(AxesRot);
-    const FVector Forward = AxesMat.TransformVector(Owner->GetActorForwardVector());
-    const FVector Right   = AxesMat.TransformVector(Owner->GetActorRightVector());
-    const FVector Up      = AxesMat.TransformVector(Owner->GetActorUpVector());
+    // Ship-local axes derived strictly from the physics body so X+=forward, Y+=right, Z+=up
+    const FTransform BodyXform = Body->GetComponentTransform();
+    const FVector Forward = BodyXform.GetUnitAxis(EAxis::X); // roll axis (local X)
+    const FVector Right   = BodyXform.GetUnitAxis(EAxis::Y); // pitch axis (local Y)
+    const FVector Up      = BodyXform.GetUnitAxis(EAxis::Z); // yaw axis (local Z)
 
     // Forces
     const float   ForwardForce = (SmoothedThrust * Settings.ThrustForce);
