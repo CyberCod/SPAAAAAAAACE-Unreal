@@ -39,8 +39,9 @@ struct FChaseCameraSettings
 UENUM(BlueprintType)
 enum class ECameraMode : uint8
 {
-	Chase = 0 UMETA(DisplayName = "Chase"),  // Third-person follow camera
-	Nose = 1 UMETA(DisplayName = "Nose")     // First-person cockpit camera
+    Chase = 0 UMETA(DisplayName = "Chase"),   // Third-person follow camera (ChaseCam1)
+    Nose  = 1 UMETA(DisplayName = "Nose"),    // First-person cockpit camera
+    Chase2 = 2 UMETA(DisplayName = "Chase 2") // Third-person follow camera (velocity-aligned)
 };
 
 /**
@@ -196,6 +197,22 @@ public:
 	UPROPERTY(VisibleAnywhere, Category = "Ship|Components")
 	TObjectPtr<UCameraComponent> FOLLOW_CAM;
 
+    /**
+     * CameraPivot2 / CameraStick2 / FOLLOW_CAM2 - Velocity-Aligned Chase Cam
+     * 
+     * A second chase camera rig where the pivot aligns to the current
+     * movement vector each frame. The stick is positioned behind the
+     * pivot's forward direction.
+     */
+    UPROPERTY(VisibleAnywhere, Category = "Ship|Components")
+    TObjectPtr<USceneComponent> CameraPivot2;
+
+    UPROPERTY(VisibleAnywhere, Category = "Ship|Components")
+    TObjectPtr<USceneComponent> CameraStick2;
+
+    UPROPERTY(VisibleAnywhere, Category = "Ship|Components")
+    TObjectPtr<UCameraComponent> FOLLOW_CAM2;
+
 	/**
 	 * NoseStick - First-Person Camera Positioning Component
 	 * 
@@ -332,6 +349,17 @@ public:
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera|Chase")
 	FChaseCameraSettings ChaseCamera;
+
+    /** Settings for ChaseCam2 */
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera|Chase2")
+    FChaseCameraSettings ChaseCamera2;
+
+	/**
+	 * bChaseCamMatchRoll - Make chase camera inherit ship roll
+	 * When true, the follow camera's roll will match the ship's roll (X-axis).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera|Chase")
+	bool bChaseCamMatchRoll = false;
 
 	/**
 	 * CameraMode - Active Camera Perspective

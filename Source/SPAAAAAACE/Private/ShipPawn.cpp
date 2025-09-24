@@ -204,6 +204,23 @@ AShipPawn::AShipPawn()
     FOLLOW_CAM->SetRelativeLocation(FVector::ZeroVector);
     FOLLOW_CAM->SetActive(true);
 
+    // ChaseCam2: velocity-aligned rig
+    CameraPivot2 = CreateDefaultSubobject<USceneComponent>(TEXT("CameraPivot2"));
+    CameraPivot2->SetupAttachment(BuggyColliderMesh);
+    CameraPivot2->SetRelativeLocation(ChaseCamera2.PivotOffset);
+
+    CameraStick2 = CreateDefaultSubobject<USceneComponent>(TEXT("CameraStick2"));
+    CameraStick2->SetupAttachment(CameraPivot2);
+    CameraStick2->SetRelativeLocation(ChaseCamera2.StickOffset);
+
+    FOLLOW_CAM2 = CreateDefaultSubobject<UCameraComponent>(TEXT("FOLLOW_CAM2"));
+    FOLLOW_CAM2->SetupAttachment(CameraStick2);
+    FOLLOW_CAM2->bUsePawnControlRotation = false;
+    FOLLOW_CAM2->SetUsingAbsoluteRotation(true);
+    FOLLOW_CAM2->SetRelativeRotation(FRotator::ZeroRotator);
+    FOLLOW_CAM2->SetRelativeLocation(FVector::ZeroVector);
+    FOLLOW_CAM2->SetActive(false);
+
 	/**
 	 * NoseStick - First-Person Camera Positioning Component
 	 * 
@@ -499,17 +516,24 @@ void AShipPawn::Tick(float DeltaSeconds)
 
 	if (!CameraStick || !FOLLOW_CAM || !BuggyColliderMesh) { return; }
 
-	if (CameraMode == ECameraMode::Chase)
+    if (CameraMode == ECameraMode::Chase)
 	{
 		// Simple camera stick approach - camera follows ship orientation
 		// CameraStick position and camera offset are set in Blueprint
 		// Camera naturally looks toward ship center since it's attached to the stick
 		
-		// Make camera look toward ship center
-		const FVector CamWorldPos = FOLLOW_CAM->GetComponentLocation();
-		const FVector ShipCenter = GetActorLocation();
-		const FRotator LookAtRot = (ShipCenter - CamWorldPos).Rotation();
-		FOLLOW_CAM->SetWorldRotation(LookAtRot);
+        // Make camera look toward ship center, with optional roll match
+        const FVector CamWorldPos = FOLLOW_CAM->GetComponentLocation();
+        const FVector ShipCenter = GetActorLocation();
+        FRotator LookAtRot = (ShipCenter - CamWorldPos).Rotation();
+
+        if (bChaseCamMatchRoll)
+        {
+            // Replace camera roll with ship's roll about its forward (X) axis
+            const float ShipRoll = GetActorRotation().Roll;
+            LookAtRot.Roll = ShipRoll;
+        }
+        FOLLOW_CAM->SetWorldRotation(LookAtRot);
 
 		// On-screen debug
 		if (bShowCameraDebug && GEngine)
@@ -528,11 +552,37 @@ void AShipPawn::Tick(float DeltaSeconds)
 		}
 		return;
 	}
+
+    if (CameraMode == ECameraMode::Chase2)
+    {
+        if (FOLLOW_CAM2 && CameraPivot2 && BuggyColliderMesh)
+        {
+            // Align pivot to current velocity direction; fallback to actor forward when nearly stopped
+            const FVector Vel = BuggyColliderMesh->GetPhysicsLinearVelocity();
+            const bool bHasVel = Vel.SizeSquared() > FMath::Square(10.f); // >10 cm/s
+            const FVector Dir = bHasVel ? Vel.GetSafeNormal() : GetActorForwardVector();
+            const FRotator Target = Dir.Rotation();
+            CameraPivot2->SetWorldRotation(Target);
+
+            // Camera looks back at ship center from the stick end
+            const FVector CamPos = FOLLOW_CAM2->GetComponentLocation();
+            const FVector ShipCenter = GetActorLocation();
+            const FRotator LookAt = (ShipCenter - CamPos).Rotation();
+            FOLLOW_CAM2->SetWorldRotation(LookAt);
+        }
+        return;
+    }
 }
 
 void AShipPawn::ToggleCameraMode()
 {
-	CameraMode = (CameraMode == ECameraMode::Chase) ? ECameraMode::Nose : ECameraMode::Chase;
+    // Cycle: Chase -> Chase2 -> Nose -> Chase ...
+    switch (CameraMode)
+    {
+        case ECameraMode::Chase:  CameraMode = ECameraMode::Chase2; break;
+        case ECameraMode::Chase2: CameraMode = ECameraMode::Nose;   break;
+        default:                  CameraMode = ECameraMode::Chase;  break;
+    }
 	ApplyCameraMode(true);
 }
 
@@ -546,11 +596,14 @@ void AShipPawn::ZeroShipRotation()
 
 void AShipPawn::ApplyCameraMode(bool bInstant)
 {
-	const bool bUseNose = (CameraMode == ECameraMode::Nose);
-	if (NOSE_CAM) { NOSE_CAM->SetActive(bUseNose); }
-	if (FOLLOW_CAM) { FOLLOW_CAM->SetActive(!bUseNose); }
+    const bool bUseNose  = (CameraMode == ECameraMode::Nose);
+    const bool bUseChase2 = (CameraMode == ECameraMode::Chase2);
 
-	if (NoseStick)
+    if (NOSE_CAM)     { NOSE_CAM->SetActive(bUseNose); }
+    if (FOLLOW_CAM)   { FOLLOW_CAM->SetActive(!bUseNose && !bUseChase2); }
+    if (FOLLOW_CAM2)  { FOLLOW_CAM2->SetActive(bUseChase2); }
+
+    if (NoseStick)
 	{
 		NoseStick->SetRelativeLocation(FVector(NoseOffsetForward, 0.f, NoseOffsetUp));
 		if (bInstant)
