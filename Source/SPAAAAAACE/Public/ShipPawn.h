@@ -9,6 +9,7 @@ class USceneComponent;
 class UStaticMeshComponent;
 class UCameraComponent;
 class USHIP_BASICS;
+class UExhaustBellController;
 
 /**
  * FChaseCameraSettings - Blueprint-tunable chase camera configuration
@@ -253,6 +254,10 @@ public:
 	 */
 	UPROPERTY(VisibleAnywhere, Category = "Ship|Components")
 	TObjectPtr<USHIP_BASICS> ShipBasics;
+
+    /** Exhaust bell controller component */
+    UPROPERTY(VisibleAnywhere, Category = "Ship|Components")
+    TObjectPtr<UExhaustBellController> ExhaustBellController;
 
 	// ============================================================================
 	// ASSET CONFIGURATION

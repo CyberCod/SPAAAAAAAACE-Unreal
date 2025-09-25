@@ -22,6 +22,7 @@
 // Game-specific includes
 #include "SHIP_BASICS.h"                     // Ship gameplay logic
 #include "AgnosticController.h"              // Input handling
+#include "ExhaustBellController.h"
 
 // Engine utilities
 #include "Engine/StreamableManager.h"        // Asset loading
@@ -266,6 +267,9 @@ AShipPawn::AShipPawn()
 	 * input and converting it into physics forces and torques.
 	 */
 	ShipBasics = CreateDefaultSubobject<USHIP_BASICS>(TEXT("ShipBasics"));
+
+    // Exhaust bell controller
+    ExhaustBellController = CreateDefaultSubobject<UExhaustBellController>(TEXT("ExhaustBellController"));
 
 	// ============================================================================
 	// ACTOR CONFIGURATION
